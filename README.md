@@ -52,3 +52,4 @@ Place this project inside openFrameworks/apps/myApps/
 Use the Project Generator
 
 Open in Xcode and run
+Enjoy :)
