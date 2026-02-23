@@ -32,25 +32,99 @@ void ofApp::update() {
 }
 
 void ofApp::draw() {
-	ofSetColor(255);
-	ofDrawBitmapString("Press 1: Sine | 2: Square | 3: Saw", 20, 20);
-	
-	string names[] = {"Sine", "Square", "Sawtooth"};
-	ofDrawBitmapString("Current Wave: " + names[currentWave], 20, 40);
-	ofDrawBitmapString("Frequency: " + ofToString(currentFreq) + " Hz", 20, 60);
+    float t = ofGetElapsedTimef();
+    
+    // --- Base color depends on wave type (1/2/3)
+    float baseHue = 0;
+    if (currentWave == 0) baseHue = 180; // Sine = cool blue
+    if (currentWave == 1) baseHue = 30;  // Square = warm orange
+    if (currentWave == 2) baseHue = 300; // Saw = purple/pink
+    
+    // Mouse influences brightness/saturation
+    float sat = ofMap(ofGetMouseX(), 0, ofGetWidth(), 90, 255, true);
+    float bri = ofMap(ofGetMouseY(), 0, ofGetHeight(), 255, 80, true);
+    
+    // Animate hue slightly over time
+    float hue = fmod(baseHue + t * 25.0f, 255.0f);
+    
+    ofColor bg;
+    bg.setHsb(hue, sat * 0.35f, bri * 0.20f);
+    ofBackground(bg);
+    
+    // --- Text UI
+    ofSetColor(255);
+    ofDrawBitmapString("Press 1: Sine | 2: Square | 3: Saw", 20, 20);
+    
+    string names[] = {"Sine", "Square", "Sawtooth"};
+    ofDrawBitmapString("Current Wave: " + names[currentWave], 20, 40);
+    ofDrawBitmapString("Frequency: " + ofToString(currentFreq, 2) + " Hz", 20, 60);
+    
+    // --- Frequency meter (right side)
+    float meterH = ofMap(currentFreq, 100, 2000, 0, ofGetHeight() - 40, true);
+    ofNoFill();
+    ofSetColor(255);
+    ofDrawRectangle(ofGetWidth() - 40, 20, 20, ofGetHeight() - 40);
+    
+    ofFill();
+    ofColor meter; meter.setHsb(hue, sat, 255);
+    ofSetColor(meter);
+    ofDrawRectangle(ofGetWidth() - 40, ofGetHeight() - 20 - meterH, 20, meterH);
+    
+    // --- Mouse “orb” + trail
+    ofVec2f m(ofGetMouseX(), ofGetMouseY());
+    
+    // Orb that orbits slightly
+    float r = 12 + 6 * sin(t * 4);
+    ofColor orb; orb.setHsb(hue, sat, 255);
+    ofSetColor(orb);
+    ofDrawCircle(m.x + cos(t * 6) * 8, m.y + sin(t * 6) * 8, r);
+    
+    // Draw trail with fade
+    for (int i = 0; i < (int)trail.size(); i++) {
+        float a = ofMap(i, 0, trail.size()-1, 180, 0, true);
+        ofColor c; c.setHsb(fmod(hue + i * 2, 255.0f), sat, 255);
+        c.a = a;
+        ofSetColor(c);
+        ofDrawCircle(trail[i].x, trail[i].y, ofMap(i, 0, trail.size()-1, 10, 2, true));
+    }
+    
+    // --- Moving wave visualization (slow scroll)
+    ofNoFill();
+    ofSetColor(255);
+    
+    float speed = 0.8f;      // smaller = slower
+    float freqVisual = 0.05f;
+    float ampVisual  = 50.0f;
+    
+    ofBeginShape();
+    for (int i = 0; i < ofGetWidth(); i++) {
+        float x = i;
+        float y = ofGetHeight() / 2;
+        
+        float phase = i * freqVisual + t * speed;
+        
+        if (currentWave == 0) {
+            y += sin(phase) * ampVisual;
+        }
+        else if (currentWave == 1) {
+            y += (sin(phase) > 0 ? ampVisual : -ampVisual);
+        }
+        else if (currentWave == 2) {
+            float p = fmod(phase, TWO_PI) / TWO_PI;
+            float saw = (p * 2.0f) - 1.0f;
+            y += saw * ampVisual;
+        }
+        
+        ofVertex(x, y);
+    }
+    ofEndShape(false);
+}
 
-	// Simple Visualization: Drawing the wave shape
-	ofNoFill();
-	ofBeginShape();
-	for (int i = 0; i < ofGetWidth(); i++) {
-		float x = i;
-		float y = ofGetHeight()/2;
-		if (currentWave == 0) y += sin(i * 0.05) * 50;
-		if (currentWave == 1) y += (sin(i * 0.05) > 0 ? 50 : -50);
-		if (currentWave == 2) y += ( (i % 50) / 25.0 - 1.0) * 50;
-		ofVertex(x, y);
-	}
-	ofEndShape();
+void ofApp::mouseMoved(int x, int y) {
+    trail.push_front(ofVec2f(x, y));
+    if (trail.size() > maxTrail) {
+        trail.pop_back();
+    }
 }
 
 void ofApp::audioOut(ofSoundBuffer & buffer) {
